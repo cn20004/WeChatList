@@ -9,5 +9,9 @@ export {
   getSuggestedFilename
 } from "./core/exporter.js";
 export { FileStorage } from "./core/storage.js";
-export { WechatBackendAdapter } from "./adapters/wechat-backend-adapter.js";
+export {
+  WechatBackendAdapter,
+  WechatAuthError,
+  WechatRateLimitError
+} from "./adapters/wechat-backend-adapter.js";
 export { createWechatRouter } from "./api/router.js";

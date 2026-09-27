@@ -9,8 +9,57 @@ function errorPayload(error) {
   };
 }
 
-export function createWechatRouter({ collector = new WechatCollector() } = {}) {
+export function createWechatRouter({
+  collector = new WechatCollector(),
+  jobManager = null
+} = {}) {
   const router = express.Router();
+
+  router.get("/jobs", async (req, res) => {
+    if (!jobManager) return res.status(501).json({ error: "Job manager is not configured" });
+    return res.json(await jobManager.list({ limit: Number(req.query.limit || 100) }));
+  });
+
+  router.get("/jobs/:id", async (req, res) => {
+    if (!jobManager) return res.status(501).json({ error: "Job manager is not configured" });
+    const job = await jobManager.get(req.params.id);
+    if (!job) return res.status(404).json({ error: "Job not found" });
+    return res.json(job);
+  });
+
+  router.post("/jobs/account-collect", async (req, res) => {
+    try {
+      if (!jobManager) return res.status(501).json({ error: "Job manager is not configured" });
+      const job = await jobManager.create("account-collect", req.body ?? {});
+      return res.status(202).json(job);
+    } catch (error) {
+      return res.status(400).json(errorPayload(error));
+    }
+  });
+
+  router.post("/jobs/urls-collect", async (req, res) => {
+    try {
+      if (!jobManager) return res.status(501).json({ error: "Job manager is not configured" });
+      const job = await jobManager.create("urls-collect", req.body ?? {});
+      return res.status(202).json(job);
+    } catch (error) {
+      return res.status(400).json(errorPayload(error));
+    }
+  });
+
+  router.post("/jobs/:id/cancel", async (req, res) => {
+    if (!jobManager) return res.status(501).json({ error: "Job manager is not configured" });
+    const job = await jobManager.cancel(req.params.id);
+    if (!job) return res.status(404).json({ error: "Job not found" });
+    return res.json(job);
+  });
+
+  router.post("/jobs/:id/retry", async (req, res) => {
+    if (!jobManager) return res.status(501).json({ error: "Job manager is not configured" });
+    const job = await jobManager.retry(req.params.id);
+    if (!job) return res.status(404).json({ error: "Job not found" });
+    return res.json(job);
+  });
 
   router.get("/health", (_req, res) => {
     res.json({

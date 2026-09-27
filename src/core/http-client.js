@@ -34,4 +34,15 @@ export class HttpClient {
   async getText(url, options) {
     return (await this.get(url, options)).text();
   }
+
+  async getJson(url, options) {
+    const response = await this.get(url, options);
+    const text = await response.text();
+
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(`Expected JSON response from ${url}`);
+    }
+  }
 }

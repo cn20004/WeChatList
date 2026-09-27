@@ -1,8 +1,11 @@
 import express from "express";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { createWechatRouter } from "./api/router.js";
 import { WechatCollector } from "./core/collector.js";
 
 const port = Number(process.env.PORT || 3000);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const collector = new WechatCollector({
   cookie: process.env.WECHAT_COOKIE || "",
@@ -11,15 +14,12 @@ const collector = new WechatCollector({
 });
 
 const app = express();
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "2mb" }));
 app.use("/api/wechat", createWechatRouter({ collector }));
+app.use(express.static(path.join(__dirname, "web")));
 
 app.get("/", (_req, res) => {
-  res.json({
-    name: "WeChatList Node.js",
-    version: "0.1.0",
-    health: "/api/wechat/health"
-  });
+  res.sendFile(path.join(__dirname, "web", "index.html"));
 });
 
 app.listen(port, () => {

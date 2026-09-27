@@ -15,7 +15,7 @@
     "auth": "node src/scripts/capture-session.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
     "archiver": "^7.0.1",

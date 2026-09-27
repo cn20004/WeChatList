@@ -22,6 +22,53 @@ export function createWechatRouter({ collector = new WechatCollector() } = {}) {
     }
   });
 
+  router.post("/articles/batch", async (req, res) => {
+    try {
+      const { urls, concurrency = 3 } = req.body ?? {};
+      const results = await collector.parseArticles(urls, { concurrency });
+
+      return res.json({
+        total: results.length,
+        success: results.filter(item => item.ok).length,
+        failed: results.filter(item => !item.ok).length,
+        results
+      });
+    } catch (error) {
+      return res.status(400).json({
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  router.post("/articles/export", async (req, res) => {
+    try {
+      const { article, format = "markdown" } = req.body ?? {};
+      if (!article) return res.status(400).json({ error: "article is required" });
+
+      const exported = collector.exportArticle(article, format);
+      res.type(exported.contentType);
+      return res.send(exported.content);
+    } catch (error) {
+      return res.status(400).json({
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  router.post("/articles/save", async (req, res) => {
+    try {
+      const { article, format = "json", directory = "articles" } = req.body ?? {};
+      if (!article) return res.status(400).json({ error: "article is required" });
+
+      const result = await collector.saveArticle(article, { format, directory });
+      return res.json(result);
+    } catch (error) {
+      return res.status(400).json({
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   router.post("/accounts/search", async (req, res) => {
     try {
       const { keyword } = req.body ?? {};

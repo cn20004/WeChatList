@@ -1,0 +1,23 @@
+{
+  "name": "wechat-list-node",
+  "version": "0.1.0",
+  "description": "Reusable Node.js module and HTTP API for collecting and parsing WeChat Official Account articles.",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./express": "./src/api/router.js"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "express": "^5.1.0"
+  }
+}

@@ -70,6 +70,29 @@ export class WechatCollector {
     return this.storage.saveArticle(article, options);
   }
 
+  async collectUrls(urls, {
+    concurrency = 3,
+    save = false,
+    format = "json",
+    directory = "articles"
+  } = {}) {
+    const results = await this.parseArticles(urls, { concurrency });
+
+    if (!save) return results;
+
+    for (const item of results) {
+      if (!item.ok) continue;
+
+      try {
+        item.saved = await this.saveArticle(item.article, { format, directory });
+      } catch (error) {
+        item.saveError = error instanceof Error ? error.message : "Unknown error";
+      }
+    }
+
+    return results;
+  }
+
   async searchAccount(keyword) {
     if (!keyword?.trim()) throw new Error("keyword is required");
     return this.backend.searchAccount(keyword.trim());

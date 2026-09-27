@@ -5,19 +5,26 @@ import { createWechatRouter } from "./api/router.js";
 import { WechatCollector } from "./core/collector.js";
 import { HttpClient } from "./core/http-client.js";
 import { WechatBackendAdapter } from "./adapters/wechat-backend-adapter.js";
+import { SessionStore } from "./core/session-store.js";
 
 const port = Number(process.env.PORT || 3000);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+const sessionStore = new SessionStore();
+const storedSession = await sessionStore.load();
+
+const cookie = process.env.WECHAT_COOKIE || storedSession?.cookie || "";
+const token = process.env.WECHAT_TOKEN || storedSession?.token || "";
+
 const httpClient = new HttpClient({
-  cookie: process.env.WECHAT_COOKIE || "",
+  cookie,
   timeoutMs: Number(process.env.WECHAT_REQUEST_TIMEOUT_MS || 30000),
   userAgent: process.env.WECHAT_USER_AGENT || "Mozilla/5.0"
 });
 
 const backendAdapter = new WechatBackendAdapter({
   httpClient,
-  token: process.env.WECHAT_TOKEN || "",
+  token,
   requestDelayMs: Number(process.env.WECHAT_REQUEST_DELAY_MS || 500),
   rateLimitCooldownMs: Number(process.env.WECHAT_RATE_LIMIT_COOLDOWN_MS || 20000),
   maxRateLimitRetries: Number(process.env.WECHAT_RATE_LIMIT_RETRIES || 2)
@@ -26,8 +33,9 @@ const backendAdapter = new WechatBackendAdapter({
 const collector = new WechatCollector({ httpClient, backendAdapter });
 
 const app = express();
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "4mb" }));
 app.use("/api/wechat", createWechatRouter({ collector }));
+app.use("/downloads", express.static(collector.storage.baseDir));
 app.use(express.static(path.join(__dirname, "web")));
 
 app.get("/", (_req, res) => {
@@ -36,4 +44,5 @@ app.get("/", (_req, res) => {
 
 app.listen(port, () => {
   console.log(`WeChatList Node.js listening on http://localhost:${port}`);
+  console.log(`WeChat backend session: ${backendAdapter.isConfigured() ? "configured" : "not configured"}`);
 });

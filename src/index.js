@@ -8,7 +8,18 @@ export {
   exportArticle,
   getSuggestedFilename
 } from "./core/exporter.js";
+export {
+  articleToDocx,
+  articleToPdf,
+  articleToJpeg,
+  articlesToXlsx,
+  exportArticleBinary,
+  exportArticlesXlsx
+} from "./core/binary-exporter.js";
 export { FileStorage } from "./core/storage.js";
+export { AssetDownloader } from "./core/asset-downloader.js";
+export { filterArticles } from "./core/filter.js";
+export { createZipFromDirectory } from "./core/bundle.js";
 export {
   WechatBackendAdapter,
   WechatAuthError,

@@ -47,7 +47,7 @@ export function parseWechatArticleHtml(html, sourceUrl = "") {
   const audio = [];
   const audioFileIds = [];
 
-  $("[data-voice_encode_fileid], [data-audiourl], audio, source").each((_, element) => {
+  $("[voice_encode_fileid], [data-voice_encode_fileid], [data-audiourl], audio, source, mpvoice, mp-common-mpaudio").each((_, element) => {
     const node = $(element);
 
     const urls = [
@@ -62,8 +62,15 @@ export function parseWechatArticleHtml(html, sourceUrl = "") {
       if (/^https?:\/\//i.test(normalized)) uniquePush(audio, normalized);
     }
 
-    const fileId = node.attr("data-voice_encode_fileid");
-    if (fileId) uniquePush(audioFileIds, String(fileId).trim());
+    const fileId =
+      node.attr("voice_encode_fileid") ||
+      node.attr("data-voice_encode_fileid");
+
+    if (fileId) {
+      const normalizedId = String(fileId).trim();
+      uniquePush(audioFileIds, normalizedId);
+      uniquePush(audio, `https://res.wx.qq.com/voice/getvoice?mediaid=${encodeURIComponent(normalizedId)}`);
+    }
   });
 
   const music = [];
@@ -79,6 +86,7 @@ export function parseWechatArticleHtml(html, sourceUrl = "") {
     const id =
       node.attr("data-musicid") ||
       node.attr("data-mid") ||
+      node.attr("voice_encode_fileid") ||
       node.attr("data-voice_encode_fileid") ||
       "";
 

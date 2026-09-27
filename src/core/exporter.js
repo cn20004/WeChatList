@@ -1,5 +1,3 @@
-import { escape } from "node:querystring";
-
 function safeTitle(value = "article") {
   return value.replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, " ").trim() || "article";
 }

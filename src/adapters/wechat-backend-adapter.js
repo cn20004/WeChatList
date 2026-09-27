@@ -238,7 +238,9 @@ export class WechatBackendAdapter {
     count = 20,
     limit = Infinity,
     query = "",
-    maxPages = Infinity
+    maxPages = Infinity,
+    onProgress = null,
+    isCancelled = null
   } = {}) {
     const safeCount = Math.max(1, Math.min(Number(count) || 20, 20));
     const safeLimit = limit === 0 || limit === null || limit === undefined
@@ -255,6 +257,8 @@ export class WechatBackendAdapter {
     let totalCount = null;
 
     while (collected.length < safeLimit && pageIndex < safeMaxPages) {
+      if (isCancelled?.()) break;
+
       const page = await this.listArticlesPage(account, {
         begin: offset,
         count: safeCount,
@@ -278,6 +282,13 @@ export class WechatBackendAdapter {
 
       offset += safeCount;
       pageIndex += 1;
+
+      await onProgress?.({
+        stage: "listing",
+        current: collected.length,
+        total: totalCount || null,
+        message: `Fetched history page ${pageIndex}`
+      });
 
       if (totalCount && offset >= totalCount) break;
       if (collected.length >= safeLimit) break;

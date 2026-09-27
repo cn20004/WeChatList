@@ -37,7 +37,12 @@ export function articleToMarkdown(article) {
     ? markdownService().turndown(article.html)
     : String(article.text || "").trim();
 
-  return [...frontmatter, body].join("\n").trim() + "\n";
+  const extras = [];
+  for (const url of article.images || []) {
+    if (!body.includes(url)) extras.push(`![](${url})`);
+  }
+
+  return [...frontmatter, body, ...extras].filter(Boolean).join("\n\n").trim() + "\n";
 }
 
 export function articleToHtml(article) {

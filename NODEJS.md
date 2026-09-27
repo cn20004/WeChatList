@@ -96,3 +96,80 @@ The authenticated backend adapter still needs verified implementation for:
 Those endpoints should be implemented only after verifying the actual network
 requests used by the desktop application or by an authenticated WeChat backend
 session. Real cookies/tokens must never be committed to this repository.
+
+
+## Batch parse URLs
+
+```
+POST /api/wechat/articles/batch
+Content-Type: application/json
+
+{
+  "urls": [
+    "https://mp.weixin.qq.com/s/...",
+    "https://mp.weixin.qq.com/s/..."
+  ],
+  "concurrency": 3
+}
+```
+
+The batch endpoint preserves input order and returns per-URL success/failure
+results, so one failed article does not abort the whole batch.
+
+## Export an article
+
+Supported in the current stage:
+
+- Markdown
+- HTML
+- JSON
+
+```
+POST /api/wechat/articles/export
+Content-Type: application/json
+
+{
+  "format": "markdown",
+  "article": {
+    "title": "Example",
+    "text": "Article body",
+    "images": []
+  }
+}
+```
+
+## Save to disk
+
+```
+POST /api/wechat/articles/save
+Content-Type: application/json
+
+{
+  "format": "json",
+  "directory": "articles",
+  "article": {
+    "title": "Example",
+    "text": "Article body"
+  }
+}
+```
+
+Files are written beneath the configured storage base directory. The default is
+`./data`, which is ignored by Git.
+
+## Current status
+
+Working now without the original EXE source:
+
+- Fetch a public `mp.weixin.qq.com` article URL.
+- Parse title, author, publish time, text, article HTML, cover and image links.
+- Batch-process article URLs with bounded concurrency.
+- Export article data as Markdown, HTML or JSON.
+- Save exported files to local storage.
+- Mount the module inside another Express application.
+
+Still pending verified authenticated WeChat backend access:
+
+- Search arbitrary Official Accounts.
+- Resolve account identifiers such as `fakeid`.
+- Enumerate all historical articles by account.

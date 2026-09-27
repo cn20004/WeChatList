@@ -40,6 +40,37 @@ export function createWechatRouter({ collector = new WechatCollector() } = {}) {
     }
   });
 
+  router.post("/articles/collect", async (req, res) => {
+    try {
+      const {
+        urls,
+        concurrency = 3,
+        save = true,
+        format = "json",
+        directory = "articles"
+      } = req.body ?? {};
+
+      const results = await collector.collectUrls(urls, {
+        concurrency,
+        save,
+        format,
+        directory
+      });
+
+      return res.json({
+        total: results.length,
+        success: results.filter(item => item.ok).length,
+        failed: results.filter(item => !item.ok).length,
+        saved: results.filter(item => item.saved).length,
+        results
+      });
+    } catch (error) {
+      return res.status(400).json({
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   router.post("/articles/export", async (req, res) => {
     try {
       const { article, format = "markdown" } = req.body ?? {};

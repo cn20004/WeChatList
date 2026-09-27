@@ -241,13 +241,20 @@ export class WechatBackendAdapter {
     maxPages = Infinity
   } = {}) {
     const safeCount = Math.max(1, Math.min(Number(count) || 20, 20));
+    const safeLimit = limit === 0 || limit === null || limit === undefined
+      ? Infinity
+      : Math.max(1, Number(limit) || Infinity);
+    const safeMaxPages = maxPages === 0 || maxPages === null || maxPages === undefined
+      ? Infinity
+      : Math.max(1, Number(maxPages) || Infinity);
+
     let offset = Math.max(0, Number(begin) || 0);
     let pageIndex = 0;
     const collected = [];
     const seen = new Set();
     let totalCount = null;
 
-    while (collected.length < limit && pageIndex < maxPages) {
+    while (collected.length < safeLimit && pageIndex < safeMaxPages) {
       const page = await this.listArticlesPage(account, {
         begin: offset,
         count: safeCount,
@@ -266,14 +273,14 @@ export class WechatBackendAdapter {
         seen.add(key);
         collected.push(article);
 
-        if (collected.length >= limit) break;
+        if (collected.length >= safeLimit) break;
       }
 
       offset += safeCount;
       pageIndex += 1;
 
       if (totalCount && offset >= totalCount) break;
-      if (collected.length >= limit) break;
+      if (collected.length >= safeLimit) break;
       await sleep(this.requestDelayMs);
     }
 

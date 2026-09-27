@@ -18,6 +18,7 @@ export {
 } from "./core/binary-exporter.js";
 export { FileStorage } from "./core/storage.js";
 export { AssetDownloader } from "./core/asset-downloader.js";
+export { SessionStore } from "./core/session-store.js";
 export { filterArticles } from "./core/filter.js";
 export { createZipFromDirectory } from "./core/bundle.js";
 export {

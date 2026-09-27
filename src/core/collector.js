@@ -40,7 +40,7 @@ export class WechatCollector {
     return parseWechatArticleHtml(html, url);
   }
 
-  async parseArticles(urls, { concurrency = 3 } = {}) {
+  async parseArticles(urls, { concurrency = 3, onProgress = null, isCancelled = null } = {}) {
     if (!Array.isArray(urls) || urls.length === 0) {
       throw new Error("urls must be a non-empty array");
     }
@@ -48,9 +48,11 @@ export class WechatCollector {
     const safeConcurrency = Math.max(1, Math.min(Number(concurrency) || 1, 10));
     const results = new Array(urls.length);
     let cursor = 0;
+    let completed = 0;
 
     const worker = async () => {
       while (true) {
+        if (isCancelled?.()) return;
         const index = cursor++;
         if (index >= urls.length) return;
 
@@ -65,6 +67,14 @@ export class WechatCollector {
             error: error instanceof Error ? error.message : "Unknown error"
           };
         }
+
+        completed += 1;
+        await onProgress?.({
+          stage: "parsing",
+          current: completed,
+          total: urls.length,
+          message: `Parsed ${completed}/${urls.length}`
+        });
       }
     };
 
@@ -168,14 +178,18 @@ export class WechatCollector {
     formats = null,
     directory = "articles",
     assets = false,
-    zip = false
+    zip = false,
+    onProgress = null,
+    isCancelled = null
   } = {}) {
-    const results = await this.parseArticles(urls, { concurrency });
+    const results = await this.parseArticles(urls, { concurrency, onProgress, isCancelled });
 
     if (!save && !assets && !zip) return results;
 
+    let packaged = 0;
     for (const item of results) {
-      if (!item.ok) continue;
+      if (isCancelled?.()) break;
+      if (!item?.ok) continue;
 
       try {
         if (formats?.length || assets || zip) {
@@ -191,6 +205,14 @@ export class WechatCollector {
       } catch (error) {
         item.saveError = error instanceof Error ? error.message : "Unknown error";
       }
+
+      packaged += 1;
+      await onProgress?.({
+        stage: "packaging",
+        current: packaged,
+        total: results.filter(result => result?.ok).length,
+        message: `Packaged ${packaged}`
+      });
     }
 
     return results;

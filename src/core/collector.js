@@ -1,8 +1,16 @@
+import path from "node:path";
 import { HttpClient } from "./http-client.js";
 import { parseWechatArticleHtml } from "./article-parser.js";
 import { exportArticle } from "./exporter.js";
 import { FileStorage } from "./storage.js";
+import { AssetDownloader } from "./asset-downloader.js";
+import { filterArticles } from "./filter.js";
+import { createZipFromDirectory } from "./bundle.js";
 import { WechatBackendAdapter } from "../adapters/wechat-backend-adapter.js";
+
+function sanitize(value = "untitled") {
+  return value.replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, " ").trim() || "untitled";
+}
 
 export class WechatCollector {
   constructor({
@@ -11,11 +19,16 @@ export class WechatCollector {
     userAgent = "Mozilla/5.0",
     httpClient,
     backendAdapter,
-    storage
+    storage,
+    assetDownloader
   } = {}) {
     this.http = httpClient ?? new HttpClient({ cookie, timeoutMs, userAgent });
     this.backend = backendAdapter ?? new WechatBackendAdapter();
     this.storage = storage ?? new FileStorage();
+    this.assets = assetDownloader ?? new AssetDownloader({
+      httpClient: this.http,
+      baseDir: this.storage.baseDir
+    });
   }
 
   async parseArticle(url) {
@@ -70,21 +83,111 @@ export class WechatCollector {
     return this.storage.saveArticle(article, options);
   }
 
+  async saveArticlesExcel(articles, options = {}) {
+    return this.storage.saveArticlesExcel(articles, options);
+  }
+
+  filterArticles(articles, options = {}) {
+    return filterArticles(articles, options);
+  }
+
+  async downloadArticleAssets(article, options = {}) {
+    return this.assets.downloadArticleAssets(article, options);
+  }
+
+  async packageArticle(article, {
+    directory = "articles",
+    formats = ["json", "markdown", "html", "docx", "pdf", "jpg"],
+    assets = true,
+    includeImages = true,
+    includeAudio = true,
+    includeCover = true,
+    zip = true
+  } = {}) {
+    const title = sanitize(article.title || "untitled");
+    const articleDirectory = path.join(directory, title);
+    const saved = [];
+    const errors = [];
+
+    for (const format of formats) {
+      try {
+        saved.push(await this.saveArticle(article, {
+          format,
+          directory: articleDirectory,
+          filename: title
+        }));
+      } catch (error) {
+        errors.push({
+          format,
+          error: error instanceof Error ? error.message : "Unknown error"
+        });
+      }
+    }
+
+    let assetResult = null;
+    if (assets) {
+      assetResult = await this.downloadArticleAssets(article, {
+        directory,
+        includeImages,
+        includeAudio,
+        includeCover
+      });
+    }
+
+    let archive = null;
+    if (zip) {
+      const sourceDir = path.join(this.storage.baseDir, articleDirectory);
+      const outputFile = path.join(this.storage.baseDir, directory, `${title}.zip`);
+
+      try {
+        archive = await createZipFromDirectory(sourceDir, outputFile);
+      } catch (error) {
+        errors.push({
+          format: "zip",
+          error: error instanceof Error ? error.message : "Unknown error"
+        });
+      }
+    }
+
+    return {
+      article: {
+        title: article.title,
+        sourceUrl: article.sourceUrl
+      },
+      saved,
+      assets: assetResult,
+      archive,
+      errors
+    };
+  }
+
   async collectUrls(urls, {
     concurrency = 3,
     save = false,
     format = "json",
-    directory = "articles"
+    formats = null,
+    directory = "articles",
+    assets = false,
+    zip = false
   } = {}) {
     const results = await this.parseArticles(urls, { concurrency });
 
-    if (!save) return results;
+    if (!save && !assets && !zip) return results;
 
     for (const item of results) {
       if (!item.ok) continue;
 
       try {
-        item.saved = await this.saveArticle(item.article, { format, directory });
+        if (formats?.length || assets || zip) {
+          item.package = await this.packageArticle(item.article, {
+            directory,
+            formats: formats?.length ? formats : [format],
+            assets,
+            zip
+          });
+        } else if (save) {
+          item.saved = await this.saveArticle(item.article, { format, directory });
+        }
       } catch (error) {
         item.saveError = error instanceof Error ? error.message : "Unknown error";
       }
@@ -102,9 +205,25 @@ export class WechatCollector {
     return this.backend.listArticles(account, options);
   }
 
-  async collectAccount(keyword, options = {}) {
+  async collectAccount(keyword, {
+    list = {},
+    filter = {},
+    collect = {}
+  } = {}) {
     const account = await this.searchAccount(keyword);
-    const articles = await this.listArticles(account, options);
-    return { account, articles };
+    if (account?.ambiguous) return { account, ambiguous: true };
+
+    const listed = await this.listArticles(account, list);
+    const filtered = this.filterArticles(listed.articles, filter);
+    const urls = filtered.map(item => item.link);
+    const results = urls.length ? await this.collectUrls(urls, collect) : [];
+
+    return {
+      account,
+      totalCount: listed.totalCount,
+      listed: listed.fetched,
+      matched: filtered.length,
+      results
+    };
   }
 }

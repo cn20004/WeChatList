@@ -33,7 +33,7 @@ export class PersistentJobManager {
   async write(job) {
     await this.ensureDir();
     const target = this.filePath(job.id);
-    const temp = `${target}.tmp`;
+    const temp = `${target}.${randomUUID()}.tmp`;
     await fs.writeFile(temp, JSON.stringify(job, null, 2), "utf8");
     await fs.rename(temp, target);
     return job;

@@ -7,12 +7,13 @@
   <style>
     body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f6f7f9;margin:0;color:#1f2328}
     main{max-width:980px;margin:48px auto;padding:0 20px}
-    .card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:24px;box-shadow:0 8px 24px rgba(0,0,0,.04)}
+    .card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:24px;box-shadow:0 8px 24px rgba(0,0,0,.04);margin-bottom:22px}
     textarea{width:100%;box-sizing:border-box;min-height:180px;border:1px solid #d0d7de;border-radius:10px;padding:12px;font:14px/1.5 ui-monospace,monospace}
     button{border:0;border-radius:10px;padding:10px 18px;cursor:pointer;background:#111827;color:#fff;font-weight:600}
     button:disabled{opacity:.5;cursor:not-allowed}
     .row{display:flex;gap:12px;align-items:center;margin-top:14px;flex-wrap:wrap}
     input,select{padding:9px 10px;border:1px solid #d0d7de;border-radius:8px}
+    input[type=text]{min-width:280px}
     pre{white-space:pre-wrap;word-break:break-word;background:#0d1117;color:#e6edf3;border-radius:12px;padding:16px;max-height:480px;overflow:auto}
     small{color:#667085}
   </style>
@@ -20,8 +21,22 @@
 <body>
 <main>
   <h1>WeChatList Node.js</h1>
-  <p>粘贴微信公众号文章链接，每行一个。当前版本支持公开文章 URL 的批量解析与保存。</p>
+
   <div class="card">
+    <h2>按公众号采集</h2>
+    <p>需要在服务器环境变量中配置你自己的 WECHAT_COOKIE 和 WECHAT_TOKEN。</p>
+    <div class="row">
+      <input id="keyword" type="text" placeholder="输入公众号名称，例如：机器之心">
+      <input id="limit" type="number" min="1" max="500" value="20" title="文章数量">
+      <button id="accountRun">搜索并获取文章</button>
+    </div>
+    <p><small>后台接口可能触发微信频控；程序默认串行分页并限制请求频率。</small></p>
+    <pre id="accountOut">等待操作…</pre>
+  </div>
+
+  <div class="card">
+    <h2>按文章链接采集</h2>
+    <p>粘贴微信公众号文章链接，每行一个。这个功能不需要公众号后台 token。</p>
     <textarea id="urls" placeholder="https://mp.weixin.qq.com/s/..."></textarea>
     <div class="row">
       <label>并发 <input id="concurrency" type="number" min="1" max="10" value="3"></label>
@@ -35,7 +50,6 @@
       <label><input id="save" type="checkbox" checked> 保存到服务器 data 目录</label>
       <button id="run">开始采集</button>
     </div>
-    <p><small>“按公众号搜索全部历史文章”仍需要接入经过验证的微信公众号后台登录/接口适配器。</small></p>
     <pre id="out">等待操作…</pre>
   </div>
 </main>
@@ -75,6 +89,54 @@ run.addEventListener("click", async () => {
     out.textContent = String(error);
   } finally {
     run.disabled = false;
+  }
+});
+
+const accountRun = document.querySelector("#accountRun");
+const accountOut = document.querySelector("#accountOut");
+
+accountRun.addEventListener("click", async () => {
+  const keyword = document.querySelector("#keyword").value.trim();
+  const limit = Number(document.querySelector("#limit").value || 20);
+
+  if (!keyword) {
+    accountOut.textContent = "请输入公众号名称。";
+    return;
+  }
+
+  accountRun.disabled = true;
+  accountOut.textContent = "正在搜索公众号并拉取文章列表…";
+
+  try {
+    const searchResponse = await fetch("/api/wechat/accounts/search", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ keyword })
+    });
+    const account = await searchResponse.json();
+
+    if (!searchResponse.ok || account.ambiguous) {
+      accountOut.textContent = JSON.stringify(account, null, 2);
+      return;
+    }
+
+    const listResponse = await fetch("/api/wechat/accounts/articles", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        account,
+        limit,
+        count: 20,
+        maxPages: Math.ceil(limit / 20) + 1
+      })
+    });
+
+    const data = await listResponse.json();
+    accountOut.textContent = JSON.stringify(data, null, 2);
+  } catch (error) {
+    accountOut.textContent = String(error);
+  } finally {
+    accountRun.disabled = false;
   }
 });
 </script>

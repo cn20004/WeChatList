@@ -216,13 +216,45 @@ export class WechatCollector {
     const listed = await this.listArticles(account, list);
     const filtered = this.filterArticles(listed.articles, filter);
     const urls = filtered.map(item => item.link);
-    const results = urls.length ? await this.collectUrls(urls, collect) : [];
+
+    const requestedFormats = Array.isArray(collect.formats)
+      ? collect.formats.map(value => String(value).toLowerCase())
+      : null;
+
+    const wantsExcel = requestedFormats?.some(value => ["xlsx", "excel"].includes(value)) ?? false;
+    const articleFormats = requestedFormats
+      ? requestedFormats.filter(value => !["xlsx", "excel"].includes(value))
+      : requestedFormats;
+
+    const results = urls.length
+      ? await this.collectUrls(urls, {
+          ...collect,
+          formats: articleFormats
+        })
+      : [];
+
+    let excel = null;
+    if (wantsExcel) {
+      const parsedArticles = results
+        .filter(item => item.ok && item.article)
+        .map(item => ({
+          ...item.article,
+          accountName: account.nickname ?? "",
+          digest: filtered.find(meta => meta.link === item.url)?.digest ?? ""
+        }));
+
+      excel = await this.saveArticlesExcel(parsedArticles, {
+        directory: collect.directory || "accounts",
+        filename: `${sanitize(account.nickname || keyword)}-articles`
+      });
+    }
 
     return {
       account,
       totalCount: listed.totalCount,
       listed: listed.fetched,
       matched: filtered.length,
+      excel,
       results
     };
   }

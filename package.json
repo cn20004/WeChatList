@@ -23,6 +23,8 @@
     "docx": "^9.5.1",
     "exceljs": "^4.4.0",
     "express": "^5.1.0",
-    "playwright-core": "^1.55.0"
+    "playwright-core": "^1.55.0",
+    "turndown": "^7.2.0",
+    "turndown-plugin-gfm": "^1.0.2"
   }
 }

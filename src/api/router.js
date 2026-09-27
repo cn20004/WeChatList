@@ -106,8 +106,77 @@ export function createWechatRouter({ collector = new WechatCollector() } = {}) {
       const account = await collector.searchAccount(keyword);
       return res.json(account);
     } catch (error) {
-      return res.status(501).json({
-        error: error instanceof Error ? error.message : "Unknown error"
+      return res.status(400).json({
+        error: error instanceof Error ? error.message : "Unknown error",
+        code: error?.code ?? null
+      });
+    }
+  });
+
+  router.post("/accounts/articles", async (req, res) => {
+    try {
+      const {
+        account,
+        begin = 0,
+        count = 20,
+        limit = 100,
+        query = "",
+        maxPages = 20
+      } = req.body ?? {};
+
+      const result = await collector.listArticles(account, {
+        begin,
+        count,
+        limit,
+        query,
+        maxPages
+      });
+
+      return res.json(result);
+    } catch (error) {
+      return res.status(400).json({
+        error: error instanceof Error ? error.message : "Unknown error",
+        code: error?.code ?? null
+      });
+    }
+  });
+
+  router.post("/accounts/collect", async (req, res) => {
+    try {
+      const {
+        keyword,
+        list = {},
+        collect = {}
+      } = req.body ?? {};
+
+      const account = await collector.searchAccount(keyword);
+
+      if (account?.ambiguous) {
+        return res.status(409).json(account);
+      }
+
+      const listed = await collector.listArticles(account, list);
+      const urls = listed.articles.map(item => item.link);
+      const results = await collector.collectUrls(urls, collect);
+
+      return res.json({
+        account,
+        listed: {
+          totalCount: listed.totalCount,
+          fetched: listed.fetched
+        },
+        collected: {
+          total: results.length,
+          success: results.filter(item => item.ok).length,
+          failed: results.filter(item => !item.ok).length,
+          saved: results.filter(item => item.saved).length
+        },
+        results
+      });
+    } catch (error) {
+      return res.status(400).json({
+        error: error instanceof Error ? error.message : "Unknown error",
+        code: error?.code ?? null
       });
     }
   });
